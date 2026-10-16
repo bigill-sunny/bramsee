@@ -2,7 +2,7 @@
 
 ## Use the features
 
-Open Profile → Create account. Enter a name, email and password of 15–128 characters. Sign in later using the same email/password. These are Bramsee accounts, separate from the previous ChatGPT sign-in. Email verification and forgotten-password recovery are not implemented in this beta; do not launch public registration until those flows and hosting limits have been addressed.
+Open Profile → Create account. Enter a name, email and password of 15–128 characters. Sign in later using the same email/password. These are Bramsee accounts, separate from the previous ChatGPT sign-in. Email verification and forgotten-password recovery are implemented but require a configured email sender before delivery works. See search-and-email.md for setup and tests; hosting limits still need validation before public launch.
 
 Signed-in users can add/change a profile photo. The browser centre-crops and re-encodes it as a 256px JPEG, removing embedded metadata. The server accepts only bounded JPEG/PNG uploads with valid image headers and dimensions no greater than 512px. Photos are stored in D1, not a public directory. The photo endpoint returns only the current account's image with private/no-store and nosniff headers. Uploading SVG is rejected. Larger-scale image storage can later move to an object store.
 
