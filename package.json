@@ -24,7 +24,9 @@
     "test:accounts:integration": "node --experimental-strip-types tests/accounts-integration.mjs",
     "test:departure": "node --experimental-strip-types tests/departure.test.mjs",
     "test:email:integration": "node tests/email-integration.mjs",
-    "test:mail": "node --experimental-strip-types tests/mail-provider.test.mjs"
+    "test:mail": "node --experimental-strip-types tests/mail-provider.test.mjs",
+    "test:sharing": "node --experimental-strip-types tests/sharing.test.mjs",
+    "test:sharing:integration": "node tests/sharing-integration.mjs"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",

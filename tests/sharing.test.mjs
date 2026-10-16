@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {sharedPosition,sharedStatus} from '../lib/sharing.ts';
+const now=Date.now(),j={active:1,lat:43.7,lon:-79.8,updated:now,destination:'Test'};
+assert.deepEqual(sharedPosition(j),{name:'Shared journey location',lat:43.7,lon:-79.8});
+assert.equal(sharedStatus(j,false,now).fresh,true);
+assert.equal(sharedStatus(j,false,now+91000).fresh,false);
+assert.equal(sharedStatus(j,true,now).fresh,false);
+assert.equal(sharedPosition({...j,active:0}),null);
+assert.equal(sharedPosition({...j,lat:null}),null);
+assert.equal(sharedPosition({...j,lat:NaN}),null);
+assert.equal(sharedPosition({...j,lon:181}),null);
+assert.equal(sharedStatus(null,true,now).label,'Shared location unavailable');
+assert.equal(sharedStatus({...j,active:0},false,now).label,'Journey sharing ended');
+console.log('Sharing display tests passed: freshness, stale/error labels and invalid/stopped location removal.');

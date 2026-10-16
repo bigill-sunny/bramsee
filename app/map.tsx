@@ -3,8 +3,8 @@ import {useEffect,useRef,useState} from 'react';
 import type {WalkRoute} from '@/lib/walking';
 import type {Point,Stop,Option} from '@/lib/planner';
 declare global{interface Window{L:any}}
-type Props={sheetMode:string,walkingPaths:WalkRoute[],stops:Stop[],selected:Stop|null,location:Point|null,origin:Point|null,destination:Point|null,accuracy?:number,locationFresh:boolean,follow:boolean,viewRevision:number,onDrag:()=>void,vehicles:any[],route:Option|null,onStop:(s:Stop)=>void,onPin:(p:Point)=>void,pinMode:string|null};
-export default function TransitMap({sheetMode,walkingPaths,stops,selected,location,origin,destination,accuracy,locationFresh,follow,viewRevision,onDrag,vehicles,route,onStop,onPin,pinMode}:Props){
+type Props={locationLabel?:string,sheetMode:string,walkingPaths:WalkRoute[],stops:Stop[],selected:Stop|null,location:Point|null,origin:Point|null,destination:Point|null,accuracy?:number,locationFresh:boolean,follow:boolean,viewRevision:number,onDrag:()=>void,vehicles:any[],route:Option|null,onStop:(s:Stop)=>void,onPin:(p:Point)=>void,pinMode:string|null};
+export default function TransitMap({locationLabel,sheetMode,walkingPaths,stops,selected,location,origin,destination,accuracy,locationFresh,follow,viewRevision,onDrag,vehicles,route,onStop,onPin,pinMode}:Props){
  const el=useRef<HTMLDivElement>(null),map=useRef<any>(null),transit=useRef<any>(null),walk=useRef<any>(null),position=useRef<any>(null);
  const [ready,setReady]=useState(false);
  const callbacks=useRef({onStop,onPin,pinMode,onDrag});callbacks.current={onStop,onPin,pinMode,onDrag};
@@ -47,8 +47,8 @@ export default function TransitMap({sheetMode,walkingPaths,stops,selected,locati
  useEffect(()=>{
   if(!ready||!map.current)return;position.current.clearLayers();if(!location)return;const L=window.L,color=locationFresh?'#2468b2':'#858b8a';
   if(accuracy!==undefined)L.circle([location.lat,location.lon],{pane:'gps-position',radius:Math.min(accuracy,1000),color,weight:1,fillColor:color,fillOpacity:.10,interactive:false}).addTo(position.current);
-  L.circleMarker([location.lat,location.lon],{pane:'gps-position',radius:8,color:'#fff',weight:3,fillColor:color,fillOpacity:1}).bindTooltip(locationFresh?'Your GPS position':'Last known position').addTo(position.current);
- },[ready,location?.lat,location?.lon,accuracy,locationFresh]);
+  L.circleMarker([location.lat,location.lon],{pane:'gps-position',radius:8,color:'#fff',weight:3,fillColor:color,fillOpacity:1}).bindTooltip(locationFresh?(locationLabel||'Your GPS position'):'Last known position').addTo(position.current);
+ },[ready,location?.lat,location?.lon,accuracy,locationFresh,locationLabel]);
  const bottomInset=()=>{if(!el.current||window.innerWidth>760)return 0;const panel=document.querySelector('.panel');return panel?Math.max(0,el.current.getBoundingClientRect().bottom-panel.getBoundingClientRect().top):0};
  useEffect(()=>{
   if(!ready||!map.current||follow)return;const m=map.current;
