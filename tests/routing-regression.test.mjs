@@ -54,8 +54,9 @@ for(const [date,expected] of [['2026-03-08T12:00:00-04:00','2026-03-08T04:00:00Z
 }
 // Reproduce the area/time from the screenshots using the actual stored timetable.
 // The precise GPS origin and historical realtime feed were not recorded.
-const c=JSON.parse(await readFile(new URL('../public/data/catalog.json',import.meta.url),'utf8'));
-const trips=await loadServiceTrips(c,async id=>JSON.parse(await readFile(new URL('../public/data/'+id+'.json',import.meta.url),'utf8')),at);
+const historical=JSON.parse(await readFile(new URL('fixtures/brampton-20261016.json',import.meta.url),'utf8'));
+const c=historical.catalog;
+const trips=await loadServiceTrips(c,async id=>historical.tripsByService[id]||[],at);
 const origin=c.stops.find(s=>s.code==='4332'),destination=c.stops.find(s=>s.code==='4020');
 const started=performance.now(),options=plan(origin,destination,c,trips,null,1000,at);
 assert.ok(options.length,'Stored late-night Brampton service produces a journey');

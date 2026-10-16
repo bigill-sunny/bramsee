@@ -58,3 +58,5 @@ next-env.d.ts
 
 # TypeScript incremental output
 *.tsbuildinfo
+__pycache__/
+*.pyc

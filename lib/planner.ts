@@ -1,6 +1,6 @@
 export type Stop={id:string,code:string,name:string,lat:number,lon:number};
 export type Trip={id:string,route:string,headsign:string,service:string,serviceDate?:string,serviceMidnight?:number,agency?:string,mode?:'bus'|'train',number?:string,stops:[string,number,number,number,number,number?][]};
-export type Catalog={stops:Stop[],routes:Record<string,{id:string,name:string,number:string}>,calendar:Record<string,string[]>,validUntil:string};
+export type Catalog={stops:Stop[],routes:Record<string,{id:string,name:string,number:string}>,calendar:Record<string,string[]>,validUntil:string,coverage?:Record<string,{from:string,until:string,source:string}>,goCoverage?:{from:string,until:string},feedHashes?:Record<string,string>};
 export type Point={name:string,lat:number,lon:number};
 export type Leg={trip:Trip,from:Stop,to:Stop,departure:number,arrival:number,live:boolean};
 export type Transfer={from:Stop,to:Stop,minutes:number};

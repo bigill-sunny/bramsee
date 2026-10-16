@@ -1,0 +1,89 @@
+name: Refresh transit timetables
+
+on:
+  schedule:
+    - cron: '17 10 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bramsee-timetable-production
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Check deployment configuration
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo '::error::Add the private CLOUDFLARE_API_TOKEN repository Actions secret. See docs/timetable-refresh.md.'
+            exit 1
+          fi
+      - run: npm ci
+      - name: Test importer failure protection
+        run: python -m unittest discover -s tests -p 'test_timetable_import.py'
+      - name: Download, validate and stage both official feeds
+        run: python scripts/refresh-timetables.py --output .sites-runtime/refreshed-data
+      - name: Check staged timetable references and real routing samples
+        run: node --experimental-strip-types scripts/check-timetables.mjs .sites-runtime/refreshed-data
+      - name: Apply validated data to the build checkout
+        run: |
+          python - <<'PY'
+          import importlib.util
+          from pathlib import Path
+          spec = importlib.util.spec_from_file_location('refresh', 'scripts/refresh-timetables.py')
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          module.apply(Path('.sites-runtime/refreshed-data').resolve(), Path('public/data'))
+          PY
+      - name: Run routing regressions and production build
+        run: |
+          npm run test:routing
+          npm run test:journeys
+          npm run test:departure
+          node node_modules/typescript/bin/tsc --noEmit
+          npm run build
+      - name: Save refreshed timetables to GitHub
+        run: |
+          git add public/data
+          if ! git diff --cached --quiet; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m 'Refresh official Brampton and GO timetables'
+            git push origin HEAD:main
+          fi
+      - name: Deploy validated build
+        env:
+          CLOUDFLARE_ACCOUNT_ID: '8b1af56f99b3399fb37f15039d3422b7'
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: node --import ./scripts/sites-env.mjs node_modules/wrangler/bin/wrangler.js deploy --config dist/server/wrangler.json
+      - name: Check hosted coverage matches this build
+        run: |
+          node --input-type=module - <<'JS'
+          import {readFileSync} from 'node:fs';
+          const expected=JSON.parse(readFileSync('public/data/catalog.json','utf8'));
+          let matched=false;
+          for(let i=0;i<6;i++){
+            const r=await fetch('https://bramsee.bigill.workers.dev/data/catalog.json?check='+Date.now(),{cache:'no-store'});
+            if(r.ok){const actual=await r.json();if(JSON.stringify(actual.feedHashes)===JSON.stringify(expected.feedHashes)){matched=true;break}}
+            await new Promise(resolve=>setTimeout(resolve,5000));
+          }
+          if(!matched)throw Error('Hosted timetable does not match the validated build. Check the deployment.');
+          console.log('Hosted timetable hashes match.');
+          JS
