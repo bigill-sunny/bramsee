@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import {arrivals,localClock,plan} from '../lib/planner.ts';
+import {decodeFeed} from '../lib/realtime.ts';
+const now=Date.now(),clock=localClock(now),s={id:'A',code:'1',name:'First stop',lat:43.68,lon:-79.76},end={id:'B',code:'2',name:'Last stop',lat:43.69,lon:-79.76};
+const trip={id:'T',route:'1',service:'weekday',headsign:'North',stops:[['A',clock.seconds+600,1,0,0],['B',clock.seconds+1200,2,0,0]]};
+const feed={timestamp:now/1000,items:[{trip:'T',date:'',timestamp:now/1000,relationship:0,stops:[{id:'A',sequence:0,departure:now/1000+300,relationship:0}]}]};
+assert.equal(arrivals(s,[trip],feed,now)[0].live,true,'Brampton omits optional date and sequence');
+assert.equal(arrivals(s,[trip],{...feed,timestamp:now/1000-180},now)[0].live,false,'Stale feed must not appear live');
+assert.equal(arrivals(s,[trip],{...feed,items:[{...feed.items[0],relationship:3}]},now).length,0,'Cancelled trips must not appear');
+assert.equal(arrivals(s,[trip],{...feed,items:[{...feed.items[0],stops:[{...feed.items[0].stops[0],relationship:1}]}]},now).length,0,'Skipped stops must not appear');
+assert.equal(arrivals(s,[{...trip,stops:[['A',clock.seconds+600,1,1,0]]}],feed,now).length,0,'No-pickup stops must not appear');
+const c={stops:[s,end],routes:{},calendar:{},validUntil:'2026-11-01'};
+assert.ok(plan({...s,name:'Origin'},{...end,name:'Destination'},c,[trip],feed,400).some(x=>x.legs.length===1));
+assert.throws(()=>decodeFeed(new Uint8Array([10,255]),'trips'));
+console.log('7 routing and real-time correctness checks passed.');

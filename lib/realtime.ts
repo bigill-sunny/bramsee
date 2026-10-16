@@ -1,0 +1,15 @@
+// Minimal bounded protobuf reader for the GTFS-Realtime fields used by Bramsee.
+type Field={n:number,w:number,v:number|Uint8Array};
+function fields(b:Uint8Array):Field[]{let p=0;const out:Field[]=[];function v(){let n=0,s=0;for(let i=0;i<10;i++){if(p>=b.length)throw Error('Truncated feed');const x=b[p++];n+=(x&127)*2**s;if(!(x&128))return n;s+=7}throw Error('Invalid varint')};while(p<b.length){const t=v(),w=t&7,n=t>>>3;let value:number|Uint8Array;if(w===0)value=v();else if(w===2){const l=v();if(l>b.length-p)throw Error('Invalid length');value=b.slice(p,p+l);p+=l}else if(w===5){if(p+4>b.length)throw Error('Invalid float');value=new DataView(b.buffer,b.byteOffset+p,4).getFloat32(0,true);p+=4}else if(w===1){p+=8;continue}else throw Error('Unsupported wire type');out.push({n,w,v:value})}return out}
+const bytes=(a:Field[],n:number)=>a.find(x=>x.n===n)?.v as Uint8Array|undefined;
+const num=(a:Field[],n:number)=>Number(a.find(x=>x.n===n)?.v||0);
+const str=(a:Field[],n:number)=>{const b=bytes(a,n);return b instanceof Uint8Array?new TextDecoder().decode(b):''};
+const sub=(a:Field[],n:number)=>{const b=bytes(a,n);return b instanceof Uint8Array?fields(b):[]};
+const all=(a:Field[],n:number)=>a.filter(x=>x.n===n&&x.v instanceof Uint8Array).map(x=>fields(x.v as Uint8Array));
+export function decodeFeed(b:Uint8Array,kind:string){const f=fields(b),timestamp=num(sub(f,1),3);const entities=all(f,2);return {timestamp,items:entities.filter(e=>!num(e,2)).map(e=>{
+ if(kind==='vehicles'){const v=sub(e,4),t=sub(v,1),p=sub(v,2);return {trip:str(t,1),route:str(t,5),lat:num(p,1),lon:num(p,2),timestamp:num(v,5),vehicle:str(sub(v,8),1)}}
+ if(kind==='alerts'){const a=sub(e,5);const translate=(n:number)=>{const ts=all(sub(a,n),1);return str(ts.find(t=>str(t,2)==='en')||ts[0]||[],1)};return {id:str(e,1),title:translate(10),description:translate(11),url:translate(8),routes:all(a,5).map(t=>str(t,2)),periods:all(a,1).map(t=>({start:num(t,1),end:num(t,2)}))}}
+ const t=sub(e,3),d=sub(t,1);return {trip:str(d,1),date:str(d,3),relationship:num(d,4),timestamp:num(t,4),stops:all(t,2).map(s=>({id:str(s,4),sequence:num(s,1),arrival:num(sub(s,2),2),departure:num(sub(s,3),2),relationship:num(s,5)}))};})}}
+const names:Record<string,string>={trips:'TripUpdate',vehicles:'VehiclePosition',alerts:'Alert'};
+const cached:Record<string,{at:number,data:ReturnType<typeof decodeFeed>}>={};
+export async function liveFeed(kind:string){if(!names[kind])throw Error('Unknown feed');if(cached[kind]&&Date.now()-cached[kind].at<20000)return cached[kind].data;const r=await fetch('https://gtfs-rt-merge.prod.bt-cadavl.com/BramptonTransit/GTFS/merged_'+names[kind]+'.pb',{signal:AbortSignal.timeout(12000)});if(!r.ok)throw Error('Transit source unavailable');const b=await r.arrayBuffer();if(b.byteLength>12000000)throw Error('Feed too large');const data=decodeFeed(new Uint8Array(b),kind);cached[kind]={at:Date.now(),data};return data}

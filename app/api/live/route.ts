@@ -1,0 +1,2 @@
+import {liveFeed} from '@/lib/realtime';
+export async function GET(r:Request){const kind=new URL(r.url).searchParams.get('kind')||'trips';if(!['trips','vehicles','alerts'].includes(kind))return Response.json({error:'Unknown feed'},{status:400});try{return Response.json(await liveFeed(kind),{headers:{'Cache-Control':'public, max-age=15'}})}catch{return Response.json({error:'Live updates unavailable. Scheduled times are not live predictions.'},{status:503})}}
