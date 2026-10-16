@@ -1,0 +1,9 @@
+# Foreground GPS following
+
+Use **Follow my location** to start a continuous device-location watch without signing in or enabling journey sharing. The map button recenters the camera. Dragging the map pauses camera following while GPS continues. **Show full route / Route overview** fits the pedestrian paths (or bus itinerary when no walking paths are loaded). **Stop tracking / Stop GPS** clears the watch. If journey sharing is active, that control stops sharing first; a server failure keeps the control active and reports the failure rather than falsely claiming sharing has stopped.
+
+The GPS point is separate from the chosen journey origin. GPS movement does not replace the origin or request a new walking route on each fix. Start/end markers use A/B; a blue dot and accuracy circle show a fresh GPS fix. Gray indicates a last known position. The circle is visually capped at 1,000 metres; the displayed accuracy value is the actual device estimate. No fix for over 30 seconds is marked paused. The watch is cleared when it is no longer needed, the journey is ended explicitly, or the component unmounts. GPS does not start automatically on page load.
+
+The browser requires location permission and HTTPS online (localhost is allowed for development). Keep the page open: locked phones and background tabs may pause updates. This does not provide continuous background tracking, automatic off-route recalculation, or automatic turn advancement. Location is sent to the journey endpoint only while journey sharing is enabled; pedestrian endpoints are sent to openrouteservice only when walking directions are explicitly requested. Map tile requests still go to the map provider.
+
+Run `npm run test:location` for deterministic watch/freshness tests. These use a fake geolocation source and never request real GPS. The device walk test must confirm movement, permission handling, accuracy, route overview, and stopping on an actual phone.

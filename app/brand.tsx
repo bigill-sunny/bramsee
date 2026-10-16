@@ -1,0 +1,5 @@
+/** Original geometric lettering and route-shaped b. All artwork is vector. */
+export const lettering='M12 18V48C12 68 40 68 40 48C40 29 12 29 12 48 M54 62V35 M54 46C54 37 61 32 69 35 M108 62V35 M108 48C108 29 79 29 79 48C79 67 108 67 108 48 M124 62V35 M124 45C124 30 146 30 146 45V62 M146 45C146 30 168 30 168 45V62 M207 37C195 29 179 35 185 43C188 47 201 48 205 52C217 66 189 69 181 59 M248 58C235 70 218 62 218 48C218 29 248 29 248 48H219 M292 58C279 70 262 62 262 48C262 29 292 29 292 48H263';
+export default function Brand(){
+ return <span className="brand-lockup" aria-hidden="true"><svg className="brand-symbol" viewBox="0 0 64 64" fill="none"><rect width="64" height="64" rx="21" fill="#174C40"/><path d="M22 16V43C22 60 49 58 49 41C49 24 22 24 22 41" stroke="#DDF6AC" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round"/><circle cx="22" cy="16" r="6" fill="#FAFFF2"/><circle cx="22" cy="16" r="2.5" fill="#174C40"/></svg><svg className="brand-wordmark" viewBox="0 0 308 80" fill="none"><path d={lettering} stroke="currentColor" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round"/></svg></span>;
+}

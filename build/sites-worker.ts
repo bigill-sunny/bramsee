@@ -2,7 +2,10 @@ import handler from "vinext/server/fetch-handler";
 import { runWithConnectorBinding } from "../lib/connector-context";
 import type { ConnectorBinding } from "../lib/connector-contract.mjs";
 
+import {collectNotices} from '../lib/notice-store';
+
 export default {
+  scheduled(_event:ScheduledController,_env:Cloudflare.Env,ctx:ExecutionContext){ctx.waitUntil(collectNotices())},
   fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext<{ CONNECTORS?: ConnectorBinding }>) {
     let binding = ctx.props?.CONNECTORS;
     // Local preview emulates the same request-scoped capability. This branch and

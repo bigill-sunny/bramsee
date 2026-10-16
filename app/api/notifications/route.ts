@@ -1,0 +1,10 @@
+import {collectNotices} from '@/lib/notice-store';
+import {accountDb,currentUser} from '@/lib/auth';
+import {sameOrigin} from '@/lib/auth-crypto';
+import {liveFeed} from '@/lib/realtime';
+import {goFeed} from '@/lib/go-realtime';
+import {normalizeNotice,TWO_WEEKS,type ServiceNotice} from '@/lib/notices';
+import {readBody} from '@/lib/request-body';
+const headers={'Cache-Control':'private, no-store'};
+export async function GET(r:Request){try{await collectNotices();const db=accountDb(),now=Date.now(),u=await currentUser(r);await db.prepare('DELETE FROM service_notices WHERE last_seen<?').bind(now-90*86400000).run();const rows=await db.prepare('SELECT n.*,CASE WHEN rd.notice_id IS NULL THEN 0 ELSE 1 END AS read FROM service_notices n LEFT JOIN notice_reads rd ON rd.notice_id=n.id AND rd.user_id=? WHERE n.detected>=? ORDER BY n.detected DESC LIMIT 200').bind(u?.userId||'',now-TWO_WEEKS).all();const sources=await db.prepare('SELECT agency,success,status FROM notice_sources').all();return Response.json({items:rows.results,sources:sources.results,history:'Notices detected by Bramsee in the last 14 days. History begins when each feed is first monitored.'},{headers})}catch{return Response.json({error:'Service notices are unavailable.',items:[],sources:[]},{status:503,headers})}}
+export async function POST(r:Request){let raw:string;try{raw=new TextDecoder().decode(await readBody(r,16000))}catch{return new Response(null,{status:413,headers})}if(!sameOrigin(r))return new Response(null,{status:403,headers});const u=await currentUser(r);if(!u)return new Response(null,{status:401,headers});let ids;try{const b=JSON.parse(raw);ids=b.ids;if(!Array.isArray(ids)||ids.length>200||ids.some((v:any)=>typeof v!=='string'||!/^[a-f0-9]{64}$/.test(v)))throw Error()}catch{return new Response(null,{status:400,headers})}const db=accountDb();if(ids.length)await db.batch(ids.map((id:string)=>db.prepare('INSERT INTO notice_reads(user_id,notice_id,seen) SELECT ?,id,? FROM service_notices WHERE id=? ON CONFLICT(user_id,notice_id) DO NOTHING').bind(u.userId,Date.now(),id)));return Response.json({ok:true},{headers})}

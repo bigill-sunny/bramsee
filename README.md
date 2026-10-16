@@ -1,4 +1,16 @@
-# vinext-starter
+# Bramsee
+
+Brampton Transit, GO and walking journeys, live estimates, named routes, email/password accounts, profile photos and persistent service notifications.
+
+Start with `npm ci`, `npm run build`, the [database setup](docs/accounts-notifications.md), then `npm run dev`. Existing installations should apply only migrations they have not already run.
+
+- [Accounts, notifications and GO-key setup](docs/accounts-notifications.md)
+- [Deployment and phone-testing checklist](docs/release.md)
+- [Routing coverage and limitations](docs/journey-cards.md)
+
+Never commit `.dev.vars`, `.env*`, local databases or runtime files. GO live data needs a Metrolinx key; scheduled GO routing works without it. Email verification/recovery and deployment CPU validation are required before public registration.
+
+## Framework setup
 
 A clean full-stack starter running on [vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and Drizzle support.
 

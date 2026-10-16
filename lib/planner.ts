@@ -1,5 +1,5 @@
 export type Stop={id:string,code:string,name:string,lat:number,lon:number};
-export type Trip={id:string,route:string,headsign:string,service:string,serviceDate?:string,serviceMidnight?:number,stops:[string,number,number,number,number][]};
+export type Trip={id:string,route:string,headsign:string,service:string,serviceDate?:string,serviceMidnight?:number,agency?:string,mode?:'bus'|'train',number?:string,stops:[string,number,number,number,number,number?][]};
 export type Catalog={stops:Stop[],routes:Record<string,{id:string,name:string,number:string}>,calendar:Record<string,string[]>,validUntil:string};
 export type Point={name:string,lat:number,lon:number};
 export type Leg={trip:Trip,from:Stop,to:Stop,departure:number,arrival:number,live:boolean};
@@ -52,9 +52,9 @@ function times(trips:Trip[],feed:any,now:number){
    const r=u.stops?.find((r:any)=>(r.id?r.id===t.stops[i][0]:true)&&(!r.sequence||r.sequence===t.stops[i][2]));
    if(r?.relationship===2){delay=undefined;continue}
    const absolute=r?.departure||r?.arrival;
-   if(absolute)delay=absolute-origin(t)-t.stops[i][1];else if(r?.delay!==undefined)delay=r.delay;
+   if(absolute)delay=absolute-origin(t)-(r?.departure?t.stops[i][1]:(t.stops[i][5]??t.stops[i][1]));else if(r?.delay!==undefined)delay=r.delay;
   }
-  return {time:origin(t)+s[1]+(delay??0),live:delay!==undefined};
+  return {time:origin(t)+(boarding?s[1]:(s[5]??s[1]))+(delay??0),live:delay!==undefined};
  };
  return (t:Trip,index:number,boarding=true)=>{let entries=cache.get(t);if(!entries){entries=new Map();cache.set(t,entries)}const key=index*2+(boarding?1:0);if(entries.has(key))return entries.get(key)!;const result=calculate(t,index,boarding);entries.set(key,result);return result};
 }

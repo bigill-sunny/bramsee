@@ -12,7 +12,15 @@
     "start": "node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js dev --config dist/server/wrangler.json --local --persist-to .wrangler/state --ip 127.0.0.1 --inspector-port 0",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
-    "test:routing": "node --experimental-strip-types tests/planner.test.mjs && node --experimental-strip-types tests/routing-regression.test.mjs"
+    "test:routing": "node --experimental-strip-types tests/planner.test.mjs && node --experimental-strip-types tests/routing-regression.test.mjs",
+    "test:journeys": "node --experimental-strip-types tests/journeys.test.mjs",
+    "test:walking": "node --experimental-strip-types tests/walking.test.mjs",
+    "test:location": "node --experimental-strip-types tests/location.test.mjs",
+    "test:countdown": "node --experimental-strip-types tests/arrival-display.test.mjs",
+    "test:themes": "node --experimental-strip-types tests/themes.test.mjs",
+    "test:pwa": "node --experimental-strip-types tests/pwa.test.mjs",
+    "test:accounts": "node --experimental-strip-types tests/accounts.test.mjs",
+    "test:accounts:integration": "node --experimental-strip-types tests/accounts-integration.mjs"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",

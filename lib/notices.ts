@@ -1,0 +1,6 @@
+import {digest} from './auth-crypto.ts';
+export const TWO_WEEKS=14*86400000;
+export type ServiceNotice={id:string,agency:string,title:string,description:string,url:string,detected:number,last_seen:number,read?:boolean};
+export function normalizeNotice(agency:'Brampton Transit'|'GO Transit',item:any,now=Date.now()):ServiceNotice|null{if(typeof item.title!=='string'||!item.title.trim())return null;const title=item.title.trim().slice(0,300),description=String(item.description||'').trim().slice(0,6000);const fallback=agency==='GO Transit'?'https://www.gotransit.com/en/service-updates':'https://www.brampton.ca/EN/residents/transit/Pages/Service-Alerts.aspx';let url=fallback;try{const u=new URL(item.url);if(u.protocol==='https:'&&['brampton.ca','gotransit.com','metrolinx.com'].some(h=>u.hostname===h||u.hostname.endsWith('.'+h)))url=u.href}catch{}const id=digest(JSON.stringify([agency,item.id||'',title,description,item.periods||[]]));return {id,agency,title,description,url,detected:now,last_seen:now}}
+export function recentNotices(items:ServiceNotice[],now=Date.now()){return items.filter(n=>n.detected>=now-TWO_WEEKS&&n.detected<=now).sort((a,b)=>b.detected-a.detected)}
+export function hasUnread(items:ServiceNotice[],seen:Set<string>){return items.some(n=>!n.read&&!seen.has(n.id))}

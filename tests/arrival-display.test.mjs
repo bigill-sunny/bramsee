@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import {arrivalDisplay} from '../lib/arrival-display.ts';
+const now=Date.parse('2026-10-16T00:30:00-04:00');
+const at=seconds=>now/1000+seconds;
+assert.equal(arrivalDisplay(at(600),now,true).text,'10');
+assert.equal(arrivalDisplay(at(599),now,true).text,'9:59');
+assert.equal(arrivalDisplay(at(61),now,true).text,'1:01');
+assert.equal(arrivalDisplay(at(1),now,true).text,'0:01');
+assert.equal(arrivalDisplay(at(.1),now,true).text,'0:01','Do not announce due before the predicted instant');
+assert.equal(arrivalDisplay(at(0),now,true).text,'Due');
+assert.equal(arrivalDisplay(at(-5),now,true).text,'Due','No negative countdown');
+assert.equal(arrivalDisplay(at(599),now+1000,true).text,'9:58','Ticks without another feed request');
+assert.equal(arrivalDisplay(at(620),now,true).text,'11','A revised prediction may increase the countdown');
+const scheduled=arrivalDisplay(at(599),now,false);
+assert.equal(scheduled.unit,'');assert.match(scheduled.label,/Scheduled/);assert.notEqual(scheduled.text,'9:59','Scheduled or stale predictions never show live seconds');
+assert.equal(arrivalDisplay(at(599),now+1000,false).text,scheduled.text,'Scheduled clock time does not count down');
+console.log('Arrival display checks passed: ten-minute boundary, second ticks, due state, revised predictions and scheduled fallback.');
