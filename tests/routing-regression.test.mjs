@@ -1,0 +1,64 @@
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {arrivals,plan,serviceDays,loadServiceTrips} from '../lib/planner.ts';
+import {decodeFeed} from '../lib/realtime.ts';
+
+const at=Date.parse('2026-10-16T00:30:00-04:00'),now=at/1000;
+const days=serviceDays(at),yesterday=days.find(d=>d.date==='20261015');
+assert.equal(yesterday.midnight+24*3600+38*60,Date.parse('2026-10-16T00:38:00-04:00')/1000);
+const stop=(id,lat,lon)=>({id,code:id,name:id,lat,lon});
+const A=stop('A',43.7,-79.85),B=stop('B',43.69,-79.85),C=stop('C',43.69,-79.848),D=stop('D',43.68,-79.84);
+const trip=(id,route,stops)=>({id,route,headsign:route,service:'weekday',serviceDate:yesterday.date,serviceMidnight:yesterday.midnight,stops});
+const first=trip('one','26',[['A',88680,1,0,0],['B',89280,2,0,0]]);
+const second=trip('two','1',[['C',89880,1,0,0],['D',91080,2,0,0]]);
+const catalog={stops:[A,B,C,D],routes:{},calendar:{20261015:['weekday'],20261016:['weekday']},validUntil:'2026-11-01'};
+const loaded=await loadServiceTrips(catalog,async()=>[first,second].map(({serviceDate,serviceMidnight,...t})=>t),at);
+assert.ok(loaded.some(t=>t.id==='one'&&t.serviceDate==='20261015'),'Previous service-day trip loaded after midnight');
+assert.equal(arrivals(A,loaded,null,at)[0].time,now+480);
+const feed={timestamp:now,items:[{trip:'one',date:'20261015',timestamp:now,stops:[{id:'A',sequence:1,departure:now+540}]}]};
+assert.equal(arrivals(A,loaded,feed,at)[0].time,now+540,'Previous-date realtime matches correct instance');
+assert.equal(arrivals(A,loaded,feed,at)[0].live,true);
+const nextDay={...first,serviceDate:'20261016',serviceMidnight:yesterday.midnight+86400};
+assert.equal(arrivals(A,[first,nextDay],{...feed,items:feed.items.map(u=>({...u,date:''}))},at).length,1,'Undated update applies only to closest service instance');
+const delayedRoute=plan(A,D,catalog,loaded,feed,300,at).find(o=>o.legs[0].trip.id==='one');
+assert.equal(delayedRoute.legs[0].arrival,yesterday.midnight+89280+60,'Delay propagates to subsequent stops');
+assert.equal(arrivals(A,loaded,{...feed,timestamp:now-180},at)[0].live,false);
+const route=plan(A,D,catalog,loaded,null,100,at).find(o=>o.legs.length===2);
+assert.equal(route,undefined,'Transfer obeys walking limit');
+const routes=plan(A,D,catalog,loaded,null,300,at);
+assert.ok(routes.some(o=>o.transfer?.from.id==='B'&&o.transfer.to.id==='C'),'Different-stop walking transfer is found');
+assert.ok(routes[0].walk>0,'Transfer walking is included');
+const cancelled={timestamp:now,items:[{trip:'one',date:'20261015',relationship:3,stops:[]}]};
+assert.equal(plan(A,D,catalog,loaded,cancelled,300,at).length,0);
+assert.ok(plan(A,D,catalog,loaded,{...cancelled,timestamp:now-180},300,at).length,'Stale cancellation does not override current schedule');
+const skipped={...feed,items:[{...feed.items[0],stops:[{id:'A',sequence:1,relationship:1}]}]};
+assert.equal(arrivals(A,loaded,skipped,at).length,0,'Skipped boarding stop is excluded');
+const noData={...feed,items:[{...feed.items[0],stops:[...feed.items[0].stops,{id:'B',sequence:2,relationship:2}]}]};
+assert.equal(arrivals(B,loaded,noData,at)[0].live,false,'NO_DATA ends propagated delay');
+const vint=n=>{let v=BigInt.asUintN(64,BigInt(n)),out=[];do{let b=Number(v&127n);v>>=7n;out.push(b|(v?128:0))}while(v);return out};
+const number=(tag,n)=>[...vint(tag*8),...vint(n)];
+const message=(tag,bytes)=>[...vint(tag*8+2),...vint(bytes.length),...bytes];
+const text=(tag,s)=>message(tag,[...new TextEncoder().encode(s)]);
+const encoded=message(2,message(3,[...message(1,text(1,'one')),...message(2,[...text(4,'A'),...message(3,number(1,-60))]) ]));
+assert.equal(decodeFeed(new Uint8Array(encoded),'trips').items[0].stops[0].delay,-60,'Signed early-running delays decode correctly');
+const crowd=Array.from({length:12},(_,i)=>stop('decoy'+i,A.lat+i*.000001,A.lon));
+const boarding=stop('boarding',A.lat+.001,A.lon);
+const direct=trip('direct','4',[[boarding.id,89000,1,0,0],['D',90000,2,0,0]]);
+assert.ok(plan(A,D,{...catalog,stops:[...crowd,boarding,D]},[direct],null,300,at).length,'Boarding beyond ten nearest stops remains searchable');
+const missed={...direct,stops:[[boarding.id,88210,1,0,0],['D',90000,2,0,0]]};
+assert.equal(plan(A,D,{...catalog,stops:[boarding,D]},[missed],null,300,at).length,0,'Uncatchable bus is excluded');
+assert.equal(arrivals(boarding,[missed],null,at).length,1,'But its countdown remains available');
+for(const [date,expected] of [['2026-03-08T12:00:00-04:00','2026-03-08T04:00:00Z'],['2026-11-01T12:00:00-05:00','2026-11-01T05:00:00Z']]){
+ const t=Date.parse(date),d=serviceDays(t).find(d=>d.date===date.slice(0,10).replaceAll('-',''));
+ assert.equal(d.midnight,Date.parse(expected)/1000,'GTFS noon-minus-twelve survives DST');
+}
+// Reproduce the area/time from the screenshots using the actual stored timetable.
+// The precise GPS origin and historical realtime feed were not recorded.
+const c=JSON.parse(await readFile(new URL('../public/data/catalog.json',import.meta.url),'utf8'));
+const trips=await loadServiceTrips(c,async id=>JSON.parse(await readFile(new URL('../public/data/'+id+'.json',import.meta.url),'utf8')),at);
+const origin=c.stops.find(s=>s.code==='4332'),destination=c.stops.find(s=>s.code==='4020');
+const started=performance.now(),options=plan(origin,destination,c,trips,null,1000,at);
+assert.ok(options.length,'Stored late-night Brampton service produces a journey');
+assert.ok(options.some(o=>o.legs.map(l=>l.trip.route).join(',')==='26,1'),'Route 26 walking connection to route 1 remains an alternative');
+console.log(JSON.stringify({lateNightOptions:options.length,elapsedMs:Math.round(performance.now()-started),routes:options.map(o=>o.legs.map(l=>l.trip.route).join(' → '))}));
+console.log('Routing regressions passed: service dates, realtime matching, transfers, stop coverage, boarding feasibility, DST and stored Brampton timetable.');
